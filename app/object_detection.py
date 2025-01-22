@@ -1,74 +1,58 @@
-import base64
+from fastapi import WebSocket, WebSocketDisconnect
 import json
 import asyncio
-import io
+from app.yolo import YOLO_Pred
+import base64
 import numpy as np
 from PIL import Image
-from fastapi import WebSocket, WebSocketDisconnect
-from app.yolo import YOLO_Pred
+import io
 
-# Paths to YOLO model and labels
-MODEL_PATH = "app/ml_models/best.onnx"
-DATA_PATH = "app/ml_models/data.yaml"
+# Path to models
+MODEL_PATH = 'app/ml_models/best.onnx'
+DATA_PATH = 'app/ml_models/data.yaml'
 
 # Initialize YOLO model
 yolo = YOLO_Pred(MODEL_PATH, DATA_PATH)
 
-# WebSocket endpoint for real-time object detection
+# WebSocket endpoint
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()  # Accept WebSocket connection
-
+    await websocket.accept()  # Accept the WebSocket connection
+    
     try:
         while True:
-            data = await websocket.receive_text()
+            data = await websocket.receive_text()  # Receive the data sent by the client
             text_data_json = json.loads(data)
-            image_data = text_data_json.get("image")
+            image_data = text_data_json.get('image')
 
             if not image_data:
-                await websocket.send_text(json.dumps({"error": "No image provided"}))
                 continue
 
             image = decode_base64_image(image_data)
 
-            if image is None:
-                await websocket.send_text(json.dumps({"error": "Invalid image format"}))
-                continue
-
             # Run YOLO Prediction
             _, detect_res = yolo.predictions(image)
-
-            if detect_res is None:
-                await websocket.send_text(json.dumps({"error": "Object detection failed"}))
-                continue
 
             # Compute Manhattan distances
             distances = compute_manhattan_distance(detect_res)
 
             response_data = {
-                "detections": detect_res,
-                "distances": distances,
+                'detections': detect_res,
+                'distances': distances,
             }
 
-            await websocket.send_text(json.dumps(response_data))
+            await websocket.send_text(json.dumps(response_data))  # Send response back to the client
             await asyncio.sleep(0.02)  # Small delay for handling real-time frames
 
     except WebSocketDisconnect:
         print("Client disconnected")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        await websocket.send_text(json.dumps({"error": "Server error"}))
 
-# Helper function to decode Base64 images
+
 def decode_base64_image(img_str: str):
-    try:
-        img_data = base64.b64decode(img_str)
-        image = Image.open(io.BytesIO(img_data))
-        return np.array(image)
-    except Exception as e:
-        print(f"Error decoding image: {e}")
-        return None
+    img_data = base64.b64decode(img_str)
+    image = Image.open(io.BytesIO(img_data))
+    return np.array(image)
 
-# Compute Manhattan Distance between detected objects
+
 def compute_manhattan_distance(detections):
     distances = []
     num_objects = len(detections)
@@ -76,21 +60,15 @@ def compute_manhattan_distance(detections):
     for i in range(num_objects):
         for j in range(i + 1, num_objects):
             obj1, obj2 = detections[i], detections[j]
-
-            # Ensure required coordinates exist
-            if not all(k in obj1 and k in obj2 for k in ["x1", "x2", "y1", "y2"]):
-                continue
-
-            x1_center = (obj1["x1"] + obj1["x2"]) // 2
-            y1_center = (obj1["y1"] + obj1["y2"]) // 2
-            x2_center = (obj2["x1"] + obj2["x2"]) // 2
-            y2_center = (obj2["y1"] + obj2["y2"]) // 2
+            x1_center = (obj1['x1'] + obj1['x2']) // 2
+            y1_center = (obj1['y1'] + obj1['y2']) // 2
+            x2_center = (obj2['x1'] + obj2['x2']) // 2
+            y2_center = (obj2['y1'] + obj2['y2']) // 2
 
             distance = abs(x1_center - x2_center) + abs(y1_center - y2_center)
-
             distances.append({
-                "object1": obj1["label"],
-                "object2": obj2["label"],
+                "object1": obj1['label'],
+                "object2": obj2['label'],
                 "distance": distance,
             })
 
