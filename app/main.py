@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket
-from app.object_detection import detect_image
+from app.object_detection import yolo  # Import YOLO handler
 import uvicorn
 
 app = FastAPI()
@@ -14,7 +14,12 @@ async def detect_endpoint(image_data: dict):
     if not image_base64:
         return {"error": "No image provided"}
 
-    detections = detect_image(image_base64)
+    # Convert base64 to image and run YOLO
+    image = yolo.decode_base64_image(image_base64)
+    if image is None:
+        return {"error": "Invalid image format"}
+
+    _, detections = yolo.predictions(image)
     return {"detections": detections}
 
 @app.websocket("/ws/detect")
@@ -28,7 +33,12 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({"error": "No image provided"})
             continue
 
-        detections = detect_image(image_base64)
+        image = yolo.decode_base64_image(image_base64)
+        if image is None:
+            await websocket.send_json({"error": "Invalid image format"})
+            continue
+
+        _, detections = yolo.predictions(image)
         await websocket.send_json({"detections": detections})
 
 if __name__ == "__main__":
