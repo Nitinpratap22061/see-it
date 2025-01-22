@@ -1,6 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
-from .fastapi_app import detect_image, websocket_endpoint
+from fastapi_app import detect_image, websocket_endpoint
+
 
 app = FastAPI()
 
