@@ -82,7 +82,7 @@ class YOLO_Pred:
                     height = int(h * y_factor)
 
                     boxes.append([left, top, width, height])
-                    confidences.append(confidence)
+                    confidences.append(float(confidence))  # Ensure correct dtype
                     classes.append(class_id)
 
         return self.apply_nms(boxes, confidences, classes, image_w, image_h)
@@ -103,8 +103,8 @@ class YOLO_Pred:
             class_id = classes[ind]
             confidence = int(confidences[ind] * 100)
             class_name = self.labels[class_id] if class_id < len(self.labels) else "Unknown"
-            color = self.generate_colors(class_id)
 
+            # Determine position and distance
             position = "center" if image_w / 3 < x < 2 * image_w / 3 else ("left" if x < image_w / 3 else "right")
             distance = "near" if h > image_h / 2 else "far"
 
@@ -118,11 +118,3 @@ class YOLO_Pred:
             })
 
         return detected_objects
-
-    def generate_colors(self, ID):
-        color_palette = [
-            (0, 255, 0), (255, 0, 0), (0, 0, 255),
-            (0, 255, 255), (255, 255, 0), (255, 165, 0),
-            (128, 0, 128), (0, 255, 127)
-        ]
-        return color_palette[ID % len(color_palette)]
