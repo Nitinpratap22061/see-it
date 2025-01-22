@@ -7,7 +7,7 @@ from PIL import Image
 from fastapi import WebSocket, WebSocketDisconnect
 from app.yolo import YOLO_Pred
 
-# Path to YOLO model and labels
+# Paths to YOLO model and labels
 MODEL_PATH = "app/ml_models/best.onnx"
 DATA_PATH = "app/ml_models/data.yaml"
 
@@ -37,6 +37,10 @@ async def websocket_endpoint(websocket: WebSocket):
             # Run YOLO Prediction
             _, detect_res = yolo.predictions(image)
 
+            if detect_res is None:
+                await websocket.send_text(json.dumps({"error": "Object detection failed"}))
+                continue
+
             # Compute Manhattan distances
             distances = compute_manhattan_distance(detect_res)
 
@@ -50,6 +54,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        await websocket.send_text(json.dumps({"error": "Server error"}))
 
 # Helper function to decode Base64 images
 def decode_base64_image(img_str: str):
