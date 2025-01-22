@@ -1,45 +1,14 @@
-from fastapi import FastAPI, WebSocket
-from app.object_detection import yolo  # Import YOLO handler
-import uvicorn
+from fastapi import FastAPI, WebSocket  # Add WebSocket import here
+from app.object_detection import websocket_endpoint
 
 app = FastAPI()
 
+# Define a route for basic testing
 @app.get("/")
-async def root():
-    return {"message": "FastAPI Object Detection WebSocket Server Running"}
+def read_root():
+    return {"message": "FastAPI Object Detection API"}
 
-@app.post("/detect/")
-async def detect_endpoint(image_data: dict):
-    image_base64 = image_data.get("image")
-    if not image_base64:
-        return {"error": "No image provided"}
-
-    # Convert base64 to image and run YOLO
-    image = yolo.decode_base64_image(image_base64)
-    if image is None:
-        return {"error": "Invalid image format"}
-
-    _, detections = yolo.predictions(image)
-    return {"detections": detections}
-
-@app.websocket("/ws/detect")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_json()
-        image_base64 = data.get("image")
-
-        if not image_base64:
-            await websocket.send_json({"error": "No image provided"})
-            continue
-
-        image = yolo.decode_base64_image(image_base64)
-        if image is None:
-            await websocket.send_json({"error": "Invalid image format"})
-            continue
-
-        _, detections = yolo.predictions(image)
-        await websocket.send_json({"detections": detections})
-
-if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+# Add WebSocket endpoint for real-time detection
+@app.websocket("/ws/detect/")
+async def websocket_route(websocket: WebSocket):
+    await websocket_endpoint(websocket)  # Pass the WebSocket to the handler function
